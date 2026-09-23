@@ -3,12 +3,10 @@ import { api } from '../api/client.js';
 import DiscoverButton from './DiscoverButton.jsx';
 import ItemVisual from './ItemVisual.jsx';
 
-const IDLE = { status: 'idle', item: null, error: null };
-
 // A native <dialog>: the browser handles the focus trap, Escape key and inert background.
 export default function ItemDetail({ itemId, onClose, onDiscoverAnother, discoverBusy }) {
   const dialogRef = useRef(null);
-  const [state, setState] = useState(IDLE);
+  const [state, setState] = useState({ status: 'idle', item: null, error: null });
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -21,12 +19,10 @@ export default function ItemDetail({ itemId, onClose, onDiscoverAnother, discove
 
   useEffect(() => {
     if (itemId === null) {
-      setState(IDLE);
       return undefined;
     }
 
     const controller = new AbortController();
-    setState({ status: 'loading', item: null, error: null });
 
     api
       .getItem(itemId, { signal: controller.signal })
@@ -40,7 +36,14 @@ export default function ItemDetail({ itemId, onClose, onDiscoverAnother, discove
     return () => controller.abort();
   }, [itemId]);
 
-  const { status, item, error } = state;
+  const { item, error } = state;
+
+  const status =
+    itemId === null
+      ? 'idle'
+      : state.status === 'idle'
+        ? 'loading'
+        : state.status;
 
   // Clicks on the backdrop land on the <dialog> element itself, not on its content.
   const handleBackdropClick = (event) => {

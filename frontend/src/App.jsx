@@ -33,6 +33,26 @@ export default function App() {
   const [discover, setDiscover] = useState({ busy: false, error: null });
   const { itemId, openItem, closeItem } = useSelectedItem();
 
+  // Tracks which filters `list` currently reflects. When category/query/reloadCount
+  // change, flip to "loading" during render itself, rather than inside the effect
+  // below — this is React's documented pattern for resetting state in response to a
+  // change, and it avoids the extra synchronous re-render an effect-body setState
+  // call would otherwise cause on every fetch.
+  const [committedFilters, setCommittedFilters] = useState({
+    category: selectedCategory,
+    query: searchQuery,
+    reloadCount,
+  });
+  const filtersChanged =
+    committedFilters.category !== selectedCategory ||
+    committedFilters.query !== searchQuery ||
+    committedFilters.reloadCount !== reloadCount;
+
+  if (filtersChanged) {
+    setCommittedFilters({ category: selectedCategory, query: searchQuery, reloadCount });
+    setList((previous) => ({ ...previous, status: 'loading', error: null }));
+  }
+
   useEffect(() => {
     const controller = new AbortController();
     api
@@ -45,7 +65,6 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setList((previous) => ({ ...previous, status: 'loading', error: null }));
 
     api
       .listItems({ category: selectedCategory ?? undefined, q: searchQuery, signal: controller.signal })

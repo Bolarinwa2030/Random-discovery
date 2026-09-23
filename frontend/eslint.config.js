@@ -45,6 +45,8 @@ export default [
 
       "react/react-in-jsx-scope": "off",
 
+      "react/prop-types": "off",
+
       ...reactHooks.configs.recommended.rules,
 
       "react-refresh/only-export-components": [
@@ -53,6 +55,16 @@ export default [
           allowConstantExport: true,
         },
       ],
+    },
+  },
+
+  {
+    files: ["vite.config.js"],
+
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
     },
   },
 ];
