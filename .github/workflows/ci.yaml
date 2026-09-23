@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - backend
-      - fronted
+      - frontend
       - validate-docker
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     strategy:
