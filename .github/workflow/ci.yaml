@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+# If a single user pushes twice, it will stop the first and run the second one
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  REGISTRY: docker.io
+  IMAGE_PREFIX: ${{ secrets.DOCKERHUB_USERNAME }}/random-showcase
+
+# LINT AND UNIT TEST STAGE
+jobs:
+  backend:
+    name: Backend (lint + test)
+    runs-on: ubuntu-latest
+    default:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      
+      - run: npm ci
+
+      - name: Lint 
+        run: npm run lint 
+      
+      - name: Unit
+        run: npm test
+  
+  frontend:
+    name: Frontend ( lint + test )
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+        
+      - run: npm ci
+
+      - name: Lint 
+        run: npm run lint
+
+      - name: Unit
+        run: npm test
+      
+      - name: Build
+        run: npm run build
+  
+  # VALIDATING Docker-compose 
+  validate-docker:
+    name: Validate Docker & Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      
+      - name: Validate docker-compose.yml
+        run: docker compose config
+ 
+      
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+ 
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+
+#BUILD - SCAN - PUSH 
+  build-scan-push:
+    name: Build, Scan & Push (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - fronted
+      - validate-docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+#BUILD IMAGES
+
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          cache-to: type=gha,scope=${{ matrix.service }}
+          cache-from: type=gha,mode=max,scope=${{ matrix.service }}
+      
+      # SCAN FOR ISSUE 
+
+      - name: Scan Image
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          severity: CRITICAL, HIGH
+          exit-code: "1"
+          ignored-unfixed: true 
+  
+# LOGIN TO DOCKER 
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      # ONly reached here if it pass the Scan 
+      - name: Push image
+        run: |
+          docker push \
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+            
+
+  
