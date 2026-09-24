@@ -12,7 +12,7 @@ import { useSelectedItem } from './hooks/useSelectedItem.js';
 
 const SEARCH_DELAY_MS = 250;
 
-function describeResults({ status, count, category, query }) {
+export function describeResults({ status, count, category, query }) {
   if (status === 'loading' && count === 0) {
     return 'Loading items…';
   }
