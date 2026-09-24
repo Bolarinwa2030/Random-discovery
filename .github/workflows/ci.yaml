@@ -125,7 +125,7 @@ jobs:
       # SCAN FOR ISSUE 
 
       - name: Scan Image
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
           image-ref: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
           severity: CRITICAL, HIGH
